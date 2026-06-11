@@ -7,4 +7,6 @@ i specialize specifically in weaon frameworks and everything FPS.
 # WHAT ARE MY PRICES?
 100 Robux flat you may be wondering why my prices are so cheap? i am new to taking on comissions, i wanna build a reputation around my name as a developer befopre going on and increasing my prices.
 
-3 
+# EXTRA
+
+i mainly use modularized scripts, i also have experience in using FastCast and SpringModule, i priortize neat and scalable code.
