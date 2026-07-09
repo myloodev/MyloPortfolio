@@ -1,154 +1,98 @@
---[[
-    Mylos Viewmodel System
-]]
-
-local ViewmodelService = {}
-ViewmodelService.__index = ViewmodelService
-
+--!strict
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
 
 
-local Camera = workspace.CurrentCamera
-local Viewmodels = ReplicatedStorage:WaitForChild("Viewmodels")
-local SpringModule = require(
-	ReplicatedStorage.Framework.Modules:WaitForChild("Spring"))
+local Collision = require(script.Collision)
+local Sway = require(script.Sway)
+local Bob = require(script.Bob)
+local Config = require(script.Config)
 
 
-function ViewmodelService.Construct(name: string)
-	local self = setmetatable({}, ViewmodelService)
+local Shared = ReplicatedStorage.Shared
+local ViewmodelsFolder = Shared.Viewmodels
+local camera = workspace.CurrentCamera
 
-	self.Viewmodel = Viewmodels:WaitForChild(name)
+
+local ViewmodelService = {}
+
+type ViewmodelService = {
+	Name: string,
+	CurrentCamera: Camera,
+	CurrentVM: Model,
+	connections: {},
+	
+	Start: (self: ViewmodelService) -> (),
+	Stop: (self: ViewmodelService) -> (),
+	FindViewmodel: (self: ViewmodelService, name: string) -> Model,
+}
+
+function ViewmodelService.new(name: string): ViewmodelService
+	local self: ViewmodelService = setmetatable({}, ViewmodelService)
+	
+	self.Name = name
+	self.CurrentCamera = camera
 	self.CurrentVM = nil
-
-	self.Connections = {}
-
-
-	self.Aiming = false
-	self.AimAlpha = 0
-	self.AimOffset = CFrame.new()
-
-
-	self.Sway = Vector2.zero
-	self.CurrentSway = Vector2.zero
-
+	self.connections = {}
 	return self
 end
 
-
-
-
-
-function ViewmodelService:StartAim()
-	TweenService:Create(
-		Camera,
-		TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
-		{ FieldOfView = 50 }
-	):Play()
-
-	self.Aiming = true
+function ViewmodelService:FindViewmodel(name: string)
+	return ViewmodelsFolder:FindFirstChild(name)
 end
 
-function ViewmodelService:StopAim()
-	TweenService:Create(
-		Camera,
-		TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut),
-		{ FieldOfView = 70 }
-	):Play()
-
-	self.Aiming = false
+function ViewmodelService:Start()
+	
+	self.CurrentVM = self:FindViewmodel(self.name):Clone()
+	self.CurrentVM.Parent = self.CurrentCamera
+	self.CurrentVM:PivotTo(self.CurrentCamera.CFrame)
+	
+	self.Sway = Sway.new()
+	self.Bob = Bob.new()
+	self.Collision = Collision.new()
+	
+	self.Sway:Start()
+	self.Bob:Start()
+	self.Collision:Start()
+	
+	table.insert(self.connections, RunService.RenderStepped:Connect(function(dt)
+		if self.CurrentVM then
+		self.CurrentVM:PivotTo(self.CurrentCamera.CFrame * self.Sway:Update() * self.Bob:Update(dt) * self.Collision:Update(dt))
+		end
+	end))
 end
 
-
-
-function ViewmodelService:Create()
-	if self.CurrentVM then
-		self:Destroy()
-	end
-
-	self.CurrentVM = self.Viewmodel:Clone()
-	self.CurrentVM.Parent = Camera
-
-	local gun = self.CurrentVM:WaitForChild("Gun")
-	local camPart = gun:WaitForChild("CamPart")
-
-	self.AimOffset = self.CurrentVM.PrimaryPart.CFrame:ToObjectSpace(camPart.CFrame)
-
-
-	table.insert(self.Connections,
-		UserInputService.InputChanged:Connect(function(input)
-			if input.UserInputType == Enum.UserInputType.MouseMovement then
-				self.Sway = Vector2.new(
-					-input.Delta.X,
-					-input.Delta.Y
-				) * 0.15
-			end
-		end)
-	)
-
-
-	table.insert(self.Connections,
-		RunService.RenderStepped:Connect(function(dt)
-			if not self.CurrentVM then return end
-
-
-			local target = self.Aiming and 1 or 0
-			self.AimAlpha = math.clamp(
-				self.AimAlpha + (target - self.AimAlpha) * dt * 6,
-				0,
-				1
-			)
-
-
-			self.CurrentSway = self.CurrentSway:Lerp(
-				self.Sway,
-				math.clamp(dt * 15, 0, 1)
-			)
-
-			self.Sway = self.Sway:Lerp(
-				Vector2.zero,
-				math.clamp(dt * 8, 0, 1)
-			)
-
-
-			local swayCF = CFrame.Angles(
-				math.rad(self.CurrentSway.Y),
-				math.rad(self.CurrentSway.X),
-				0
-			)
-
-
-			local aimCF = CFrame.new():Lerp(
-				self.AimOffset:Inverse(),
-				self.AimAlpha
-			)
-
-
-			self.CurrentVM:PivotTo(
-				Camera.CFrame
-					* aimCF
-					* swayCF
-			)
-		end)
-	)
-end
-
-
-
-function ViewmodelService:Destroy()
-	for _, connection in ipairs(self.Connections) do
-		connection:Disconnect()
-	end
-
-	table.clear(self.Connections)
-
+function ViewmodelService:Stop()
+	
 	if self.CurrentVM then
 		self.CurrentVM:Destroy()
 		self.CurrentVM = nil
 	end
+	
+	if self.Sway then
+		self.Sway:Stop()
+		self.Sway = nil
+	end
+	
+	if self.Bob then
+		self.Bob:Stop()
+		self.Bob = nil
+	end
+	
+	if self.Collision then
+		self.Collision:Stop()
+		self.Collision = nil
+	end
+	
+	if self.connections then
+		for _, connection in self.connections do
+			connection:Disconnect()
+		end
+		self.connections = {}
+	end
 end
+
 
 return ViewmodelService
