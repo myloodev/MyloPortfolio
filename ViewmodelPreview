@@ -1,27 +1,22 @@
 --[[
     Mylos Viewmodel System
-    Added Comments For Non Scripters To Understand
 ]]
 
 local ViewmodelService = {}
 ViewmodelService.__index = ViewmodelService
 
---// Services
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
---// References
+
 local Camera = workspace.CurrentCamera
 local Viewmodels = ReplicatedStorage:WaitForChild("Viewmodels")
 local SpringModule = require(
-	ReplicatedStorage.Framework.Modules:WaitForChild("Spring")
-)
+	ReplicatedStorage.Framework.Modules:WaitForChild("Spring"))
 
---////////////////////////////////////////////////////////////
---// Constructor
---////////////////////////////////////////////////////////////
 
 function ViewmodelService.Construct(name: string)
 	local self = setmetatable({}, ViewmodelService)
@@ -31,21 +26,21 @@ function ViewmodelService.Construct(name: string)
 
 	self.Connections = {}
 
-	--// ADS State
+
 	self.Aiming = false
 	self.AimAlpha = 0
 	self.AimOffset = CFrame.new()
 
-	--// Sway State
+
 	self.Sway = Vector2.zero
 	self.CurrentSway = Vector2.zero
 
 	return self
 end
 
---////////////////////////////////////////////////////////////
---// Aim Controls
---////////////////////////////////////////////////////////////
+
+
+
 
 function ViewmodelService:StartAim()
 	TweenService:Create(
@@ -67,9 +62,7 @@ function ViewmodelService:StopAim()
 	self.Aiming = false
 end
 
---////////////////////////////////////////////////////////////
---// Viewmodel Lifecycle
---////////////////////////////////////////////////////////////
+
 
 function ViewmodelService:Create()
 	if self.CurrentVM then
@@ -84,7 +77,7 @@ function ViewmodelService:Create()
 
 	self.AimOffset = self.CurrentVM.PrimaryPart.CFrame:ToObjectSpace(camPart.CFrame)
 
-	--// Mouse Input (Sway)
+
 	table.insert(self.Connections,
 		UserInputService.InputChanged:Connect(function(input)
 			if input.UserInputType == Enum.UserInputType.MouseMovement then
@@ -96,12 +89,12 @@ function ViewmodelService:Create()
 		end)
 	)
 
-	--// Render Loop
+
 	table.insert(self.Connections,
 		RunService.RenderStepped:Connect(function(dt)
 			if not self.CurrentVM then return end
 
-			--// ADS smoothing
+
 			local target = self.Aiming and 1 or 0
 			self.AimAlpha = math.clamp(
 				self.AimAlpha + (target - self.AimAlpha) * dt * 6,
@@ -109,7 +102,7 @@ function ViewmodelService:Create()
 				1
 			)
 
-			--// Sway smoothing
+
 			self.CurrentSway = self.CurrentSway:Lerp(
 				self.Sway,
 				math.clamp(dt * 15, 0, 1)
@@ -120,20 +113,20 @@ function ViewmodelService:Create()
 				math.clamp(dt * 8, 0, 1)
 			)
 
-			--// Build sway transform
+
 			local swayCF = CFrame.Angles(
 				math.rad(self.CurrentSway.Y),
 				math.rad(self.CurrentSway.X),
 				0
 			)
 
-			--// Build ADS transform
+
 			local aimCF = CFrame.new():Lerp(
 				self.AimOffset:Inverse(),
 				self.AimAlpha
 			)
 
-			--// Apply final transform
+
 			self.CurrentVM:PivotTo(
 				Camera.CFrame
 					* aimCF
@@ -143,9 +136,7 @@ function ViewmodelService:Create()
 	)
 end
 
---////////////////////////////////////////////////////////////
---// Cleanup
---////////////////////////////////////////////////////////////
+
 
 function ViewmodelService:Destroy()
 	for _, connection in ipairs(self.Connections) do
