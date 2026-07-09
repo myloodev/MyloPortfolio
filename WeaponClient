@@ -1,9 +1,8 @@
 --[[
 	Mylos WeaponClient
-	Client-side of the Gun
 ]]
 
---// Types
+
 export type WeaponClient = {
 	weapon: Tool,
 	viewmodel: any,
@@ -17,32 +16,31 @@ export type WeaponClient = {
 	Destroy: (self: WeaponClient) -> (),
 }
 
---// Module
+
 local WeaponClient = {}
 WeaponClient.__index = WeaponClient
 
---// Services
+
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
---// Framework
+
 local Framework = ReplicatedStorage:WaitForChild("Framework")
 local Modules = Framework:WaitForChild("Modules")
 local Remotes = Framework:WaitForChild("Remotes")
 local WeaponData = Framework:WaitForChild("Weapons")
 
---// Remotes
+
 local FireEvent = Remotes:WaitForChild("Fire")
 
---// Modules
+
 local ViewmodelService = require(Modules:WaitForChild("ViewmodelService"))
 local ShotHandler = require(Modules:WaitForChild("ShotHandler"))
 
---// Player
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
 
---// Constructor
+
 function WeaponClient.Construct(tool: Tool): WeaponClient
 	local config = require(WeaponData:WaitForChild(tool.Name))
 
@@ -56,7 +54,7 @@ function WeaponClient.Construct(tool: Tool): WeaponClient
 	return self
 end
 
---// Fire weapon
+
 function WeaponClient:Fire()
 	FireEvent:FireServer(mouse.Hit.Position)
 
@@ -75,7 +73,6 @@ function WeaponClient:Fire()
 	)
 end
 
---// Aim in
 function WeaponClient:Aim()
 	if self.Aiming then return end
 
@@ -86,7 +83,7 @@ function WeaponClient:Aim()
 	end
 end
 
---// Aim out
+
 function WeaponClient:StopAim()
 	if not self.Aiming then return end
 
@@ -97,13 +94,12 @@ function WeaponClient:StopAim()
 	end
 end
 
---// Init
 function WeaponClient:Init()
 	self.viewmodel = ViewmodelService.Construct(self.weapon.Name)
 	self.viewmodel:Create()
 end
 
---// Destroy
+
 function WeaponClient:Destroy()
 	if self.viewmodel then
 		self.viewmodel:Destroy()
