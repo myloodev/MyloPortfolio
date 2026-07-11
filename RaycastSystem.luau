@@ -2,7 +2,7 @@ local Workspace = game:GetService("Workspace")
 
 export type CastOptions = {
 	Character: Model?,
-	IgnoreList: { Instance }?,
+	IgnoreList: {Instance}?,
 	FilterType: Enum.RaycastFilterType?,
 	IgnoreWater: boolean?,
 	IgnoreAccessories: boolean?,
@@ -25,113 +25,80 @@ local Raycast = {}
 local DEFAULT_MAX_PENETRATIONS = 25
 local SURFACE_OFFSET = 0.01
 
-local function IsAccessory(part: BasePart): boolean
-	local accessory = part:FindFirstAncestorOfClass("Accessory")
-
-	return accessory ~= nil
+local function isAccessory(part: BasePart)
+	return part:FindFirstAncestorOfClass("Accessory") ~= nil
 end
 
-local function ShouldIgnore(part: BasePart, options: CastOptions): boolean
-	if options.IgnoreAccessories and IsAccessory(part) then
+local function shouldIgnore(part: BasePart, options: CastOptions)
+	if options.IgnoreAccessories and isAccessory(part) then
 		return true
 	end
-
 	if options.IgnoreTransparent and part.Transparency >= 1 then
 		return true
 	end
-
 	if options.IgnoreNonCollidable and not part.CanCollide then
 		return true
 	end
-
 	return false
 end
 
-local function CreateIgnoreList(options: CastOptions): { Instance }
-	local ignore = {}
-
-	if options.IgnoreList then
-		table.move(options.IgnoreList, 1, #options.IgnoreList, 1, ignore)
+function Raycast.Cast(origin: Vector3, direction: Vector3, radius: number, options: CastOptions?): CastResult?
+	local config = options or {}
+	
+	local ignoreList = {}
+	if config.IgnoreList then
+		for _, instance in config.IgnoreList do
+			table.insert(ignoreList, instance)
+		end
 	end
-
-	if options.Character then
-		table.insert(ignore, options.Character)
+	if config.Character then
+		table.insert(ignoreList, config.Character)
 	end
-
-	return ignore
-end
-
-local function CreateParams(ignore: { Instance }, options: CastOptions): RaycastParams
+	
 	local params = RaycastParams.new()
-
-	params.FilterType = options.FilterType or Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = ignore
-	params.IgnoreWater = options.IgnoreWater ~= false
-
-	return params
-end
-
-local function CreateResult(origin: Vector3, result: RaycastResult): CastResult
-	return {
-		Instance = result.Instance,
-		Position = result.Position,
-		Normal = result.Normal,
-		Material = result.Material,
-		Distance = (result.Position - origin).Magnitude,
-		Result = result,
-	}
-end
-
-function Raycast.Cast(
-	origin: Vector3,
-	direction: Vector3,
-	radius: number,
-	options: CastOptions?
-): CastResult?
-	options = options or {}
-
-	local ignore = CreateIgnoreList(options)
-	local params = CreateParams(ignore, options)
-
+	params.FilterType = config.FilterType or Enum.RaycastFilterType.Exclude
+	params.FilterDescendantsInstances = ignoreList
+	params.IgnoreWater = config.IgnoreWater ~= false
+	
 	local currentOrigin = origin
 	local currentDirection = direction
-	local maxPenetrations = options.MaxPenetrations or DEFAULT_MAX_PENETRATIONS
-
-	for _ = 1, maxPenetrations do
-		local result = Workspace:Spherecast(
-			currentOrigin,
-			radius,
-			currentDirection,
-			params
-		)
-
-		if not result then
-			return nil
+	local limit = config.MaxPenetrations or DEFAULT_MAX_PENETRATIONS
+	
+	for i = 1, limit do
+		local hit = Workspace:Spherecast(currentOrigin, radius, currentDirection, params)
+		if not hit then 
+			break 
 		end
-
-		local part = result.Instance
-
-		if not part or not part:IsA("BasePart") then
-			return nil
+		
+		local part = hit.Instance
+		if not part or not part:IsA("BasePart") then 
+			break 
 		end
-
-		if not ShouldIgnore(part, options) then
-			return CreateResult(origin, result)
+		
+		if not shouldIgnore(part, config) then
+			return {
+				Instance = part,
+				Position = hit.Position,
+				Normal = hit.Normal,
+				Material = hit.Material,
+				Distance = (hit.Position - origin).Magnitude,
+				Result = hit,
+			}
 		end
-
-		table.insert(ignore, part)
-
-		local travelled = (result.Position - currentOrigin).Magnitude
-		local remaining = currentDirection.Magnitude - travelled
-
-		if remaining <= 0 then
-			return nil
+		
+		table.insert(ignoreList, part)
+		params.FilterDescendantsInstances = ignoreList
+		
+		local distTravelled = (hit.Position - currentOrigin).Magnitude
+		local distRemaining = currentDirection.Magnitude - distTravelled
+		if distRemaining <= 0 then 
+			break 
 		end
-
-		currentOrigin = result.Position + currentDirection.Unit * SURFACE_OFFSET
-		currentDirection = currentDirection.Unit * remaining
+		
+		currentOrigin = hit.Position + currentDirection.Unit * SURFACE_OFFSET
+		currentDirection = currentDirection.Unit * distRemaining
 	end
-
+	
 	return nil
 end
 
