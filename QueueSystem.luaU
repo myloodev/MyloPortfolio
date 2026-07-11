@@ -4,7 +4,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Shared = ReplicatedStorage:WaitForChild("Shared")
 local Modules = Shared:WaitForChild("Modules")
 local Server = Modules:WaitForChild("Server")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 
+local LeaveQueueEvent = Remotes:WaitForChild("LeaveQueueEvent")
 local SessionHandler = require(Server:WaitForChild("SessionHandler"))
 
 export type QueueService = {
@@ -161,6 +163,10 @@ function QueueService:Init()
 			print(self.Queue)
 			self:StartQueue()
 		end
+	end)
+	
+	LeaveQueueEvent.OnServerEvent:Connect(function(player)
+		self:LeaveQueue(player)
 	end)
 end
 
